@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sudoku</title>
+    <link href="css/sudoku.css" rel="stylesheet" type="text/css">
+</head>
+<body>
+    <div class="app">
+        <sudoku-grid :grid_size="grid_size" :grid="grid" :auto_fill="auto_fill" ref="sudoku"></sudoku-grid>
+        <form @submit.prevent.stop>
+            <select @change.value="changeSelection">
+                <option disabled selected>Pre-generated grids</option>
+                <option
+                    v-for="option of grids"
+                    :key="option.name"
+                    :value="option.name"
+                >{{option.name}}</option>
+            </select>
+            <br>
+            <label><input type="checkbox" v-model="auto_fill">Auto-fill</label>
+            <button @click="save">Save this grid</button>
+            <br>
+            <button v-for="(g, idx) of gridSave" @click="restore(idx)" :key="'save' + idx">Restore {{idx + 1}}</button>
+        </form>
+    </div>
+
+    <script src="lib/vue.js"></script>
+    <script src="scripts/sudoku.js"></script>
+</body>
+</html>

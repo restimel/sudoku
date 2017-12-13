@@ -1,0 +1,51 @@
+
+.sudoku {
+    display: grid;
+    grid-template-columns: repeat(9, 30px);
+    grid-template-rows: repeat(9, 27px);
+}
+
+.frozen {
+    color: rgb(140, 150, 150);
+}
+
+.cell {
+    text-align: center;
+    padding: 3px;
+}
+
+.left-border {
+    border-left: 4px solid black;
+}
+.cell:not(.left-border) {
+    border-left: 1px dotted black;
+}
+
+.right-border {
+    border-right: 4px solid black;
+}
+.cell:not(.right-border) {
+    border-right: 1px dotted black;
+}
+
+.bottom-border {
+    border-bottom: 4px solid black;
+}
+.cell:not(.bottom-border) {
+    border-bottom: 1px dotted black;
+}
+
+.top-border {
+    border-top: 4px solid black;
+}
+.cell:not(.top-border) {
+    border-top: 1px dotted black;
+}
+
+.is-error {
+    background-color: rgba(250, 150, 150, 0.5);
+}
+
+.is-valid {
+    background-color: rgba(190, 250, 210, 0.4);
+}
