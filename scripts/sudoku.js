@@ -18,6 +18,21 @@ const grids = [{
     grid: ['', '', '', '', '4', '', '2', '3', '', '4', '6', '', '2', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '5', '', '', '7', '', '2', '', '', '3', '', '', '', '', '7', '', '', '', '', '6', '', '', '', '4', '', '9', '7', '', '', '', '', '1', '', '', '3', '', '1', '', '', '6', '', '8', '', '', '', '', '', '5', '8', '', '', '1', '']
 }];
 
+Vue.directive('focus', {
+    // When the bound element is inserted into the DOM...
+    inserted: function (el, directive) {
+        // Focus the element
+        if (directive.value) {
+            el.focus();
+        }
+    },
+    update: function(el, directive) {
+        if (directive.value && directive.value !== directive.oldValue) {
+            el.focus();
+        }
+    }
+});
+
 Vue.component('sudoku-cell', {
     props: {
         grid: Array,
@@ -26,11 +41,12 @@ Vue.component('sudoku-cell', {
         values: Array,
         auto_fill: Boolean,
         frozen: Boolean,
+        isFocus: Boolean,
     },
     computed: {
       /* logical state */
         value: function() {
-            return this.grid[this.index];
+            return this.grid[this.index].value;
         },
         allValues: function() {
             let arr = (this.values || []).slice();
@@ -119,7 +135,7 @@ Vue.component('sudoku-cell', {
 
             return Array.from(possible);
         },
-        /* css states */
+      /* css states */
         leftBorder: function () {
             return this.x % 3 === 0;
         },
@@ -133,10 +149,13 @@ Vue.component('sudoku-cell', {
             return this.y % 3 === 2;
         },
         classNames: function () {
+            const isFilled = this.isValid && !!this.value;
+            this.$emit('isOk', this.index, isFilled);
+
             return {
                 cell: true,
                 'frozen': this.frozen,
-                'is-valid': !this.frozen && this.isValid && !!this.value,
+                'is-valid': !this.frozen && isFilled,
                 'is-error': !this.frozen && !this.isValid,
                 'left-border': this.leftBorder,
                 'right-border': this.rightBorder,
@@ -163,7 +182,7 @@ Vue.component('sudoku-cell', {
             if (x === this.x && y === this.y) {
                 return '';
             }
-            return this.grid[x + y * this.grid_size];
+            return this.grid[x + y * this.grid_size].value;
         }
     },
     template: `
@@ -178,6 +197,7 @@ Vue.component('sudoku-cell', {
             :value="value"
             :title="title"
             @input="change"
+            v-focus="isFocus"
         >
     `
 });
@@ -186,16 +206,23 @@ const sudoku = Vue.component('sudoku-grid', {
     props: {
         grid_size: Number,
         auto_fill: Boolean,
-        grid: Array
+        grid: Array,
+        focus: Number,
     },
     data: function() {
         return {
-            gridState: this.updateGrid(true)
+            gridState: this.updateGrid(true),
+            status: false
         };
     },
     methods: {
         change: function(index, value) {
-            Vue.set(this.gridState, index, value);
+            // Vue.set(this.gridState, index, value);
+            this.gridState[index].value = value;
+        },
+        isOk: function(index, isOk) {
+            this.gridState[index].isOk = isOk;
+            this.isComplete();
         },
         updateGrid: function(init) {
             const grid = [];
@@ -203,7 +230,12 @@ const sudoku = Vue.component('sudoku-grid', {
             for (let y = 0; y < this.grid_size; y++) {
                 for (let x = 0; x < this.grid_size; x++) {
                     const index = x + y * this.grid_size;
-                    grid[index] = this.grid[index] || '';
+                    const gridValue = this.grid[index];
+                    const value = typeof gridValue === 'object' ? gridValue.value : gridValue;
+                    grid[index] = {
+                        value: gridValue || '',
+                        isOk: false
+                    };
                 }
             }
 
@@ -211,10 +243,20 @@ const sudoku = Vue.component('sudoku-grid', {
                 return grid;
             } else {
                 this.gridState = grid;
+                this.status = false;
             }
         },
         isFrozen: function(index) {
             return !!this.grid[index];
+        },
+        isComplete: function() {
+            const isComplete = this.gridState.every((cell) => cell.isOk);
+
+            if (isComplete !== this.status) {
+                this.status = isComplete;
+                this.$emit('status', this.status);
+            }
+            return isComplete;
         }
     },
     watch: {
@@ -227,11 +269,13 @@ const sudoku = Vue.component('sudoku-grid', {
             <sudoku-cell
                 v-for="(value, index) of gridState"
                 :index="index"
+                :isFocus="index === focus"
                 :grid="gridState"
                 :grid_size="grid_size"
                 :auto_fill="auto_fill"
                 :frozen="isFrozen(index)"
                 @change="change"
+                @isOk="isOk"
                 :key="'Cell-' + index"
             ></sudoku-cell>
         </div>`
@@ -244,11 +288,24 @@ const app = new Vue({
         grid_size: gridSize,
         grid: [],
         gridSave: [],
-        grids: grids
+        grids: grids,
+        isDone: false,
+        focusIndex: 0
+    },
+    computed: {
+        grid_size2: function() {
+            return this.grid_size ** 2;
+        },
+        focusX: function() {
+            return this.focusIndex % this.grid_size;
+        },
+        focusY: function () {
+            return Math.floor(this.focusIndex / this.grid_size);
+        }
     },
     methods: {
         save: function() {
-            this.gridSave.push(this.$refs.sudoku.gridState.slice());
+            this.gridSave.push(this.$refs.sudoku.gridState.map(c=>c.value));
         },
         restore: function(index) {
             this.grid = this.gridSave[index];
@@ -260,6 +317,26 @@ const app = new Vue({
             if (grid) {
                 this.grid = grid.grid;
             }
+        },
+        onKey: function(evt) {
+            let changed = false;
+            let x = this.focusX;
+            let y = this.focusY;
+            switch(evt.code) {
+                case 'ArrowDown': y++; changed = true; break;
+                case 'ArrowUp': y += this.grid_size - 1; changed = true; break;
+                case 'ArrowLeft': x += this.grid_size - 1; changed = true; break;
+                case 'ArrowRight': x++; changed = true; break;
+            }
+            if (changed) {
+                this.focusIndex = ((x % this.grid_size) + y * this.grid_size ) % this.grid_size2;
+            }
         }
+    },
+    created: function() {
+        document.addEventListener('keydown', this.onKey);
+    },
+    destroyed: function() {
+        document.removeEventListener('keydown', this.onKey);
     }
 });

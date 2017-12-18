@@ -8,7 +8,10 @@
 </head>
 <body>
     <div class="app">
-        <sudoku-grid :grid_size="grid_size" :grid="grid" :auto_fill="auto_fill" ref="sudoku"></sudoku-grid>
+        <sudoku-grid :grid_size="grid_size" :grid="grid" :auto_fill="auto_fill" :focus="focusIndex" ref="sudoku" @status="(status)=>isDone=status"></sudoku-grid>
+        <div v-show="isDone">
+            Bravo! The grid is complete!
+        </div>
         <form @submit.prevent.stop>
             <select @change.value="changeSelection">
                 <option disabled selected>Pre-generated grids</option>
